@@ -6,11 +6,35 @@
   
   "permissions": [
     "storage",
-    "activeTab"
+    "tabs"
   ],
   
-  "host_permissions": [
-    "*://www.youtube.com/*"
-  ]
+"host_permissions": [
+  "*://www.youtube.com/*",
+  "*://youtube.com/*",
+  "*://www.youtube-nocookie.com/*",
+  "*://youtube-nocookie.com/*",
+  "*://music.youtube.com/*"
+],
+
+    "background": {
+    "service_worker": "background.js"
+  },
+    
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "YT Ad Speedup"
+  },
+
+    "content_scripts": [
+    {
+      "matches": [
+      "*://www.youtube.com/*",
+      "*://youtube.com/*",
+      "*://www.youtube-nocookie.com/*",
+      "*://youtube-nocookie.com/*",
+      "*://music.youtube.com/*"
+    ]
+      }]
   
 }
