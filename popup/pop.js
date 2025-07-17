@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Listen for real-time updates
     chrome.storage.onChanged.addListener(function(changes, namespace) {
-        if (namespace === 'sync' && (changes.adsSkipped)) {
+        if (namespace === 'sync' && (changes.adCounter)) {
             updateStats();
         }
     });
@@ -24,17 +24,17 @@ function formatNumber(num) {
 
 function updateStats() {
     chrome.storage.sync.get(['adCounter'], function(items) {
-        const adsSkipped = items.adsSkipped || 0;
+        const adCountered = items.adCounter || 0;
         
         // Update ads skipped display
-        document.getElementById('adCounter').textContent = formatNumber(adsSkipped);
+        document.getElementById('adCounter').textContent = formatNumber(adCountered);
     });
 }
 
 function resetStatistics() {
     if (confirm('Are you sure you want to reset stats?')) {
         chrome.storage.sync.set({ 
-            'adsSkipped': 0,
+            'adCounter': 0,
         }, function() {
             updateStats();
         });

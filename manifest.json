@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "YT Ad Speedup",
-  "version": "1.1.2",
+  "version": "1.1.3",
   "description": "Speeds up YT ads",
   
   "permissions": [
@@ -22,7 +22,7 @@
   },
     
   "action": {
-    "default_popup": "popup/popup.html",
+    "default_popup": "popup/pop.html",
     "default_title": "YT Ad Speedup"
   },
 
@@ -34,7 +34,14 @@
       "*://www.youtube-nocookie.com/*",
       "*://youtube-nocookie.com/*",
       "*://music.youtube.com/*"
-    ]
+    ],
+      "js": [
+        "content/playerInit.js",
+        "content/videoObserver.js", 
+        "content/speedSupervisor.js",
+        "content/speedMgmt.js"
+      ],
+      "run_at": "document_end"
       }]
   
 }
