@@ -47,6 +47,33 @@ const MediaObserver = (() => {
             return node.querySelector?.('.ad-showing, .ad-interrupting') !== null;
         },
 
+        // Check if a node contains ad blocker warning elements
+        hasAdBlockerWarning: (node) => {
+            if (node.nodeType !== Node.ELEMENT_NODE) return false;
+            
+            // Check for ad blocker warning selectors
+            const warningSelectors = [
+                'ytd-enforcement-message-view-model',
+                'ytd-enforcement-message-view-model #container'
+            ];
+            
+            // Check if the node itself matches warning selectors
+            for (const selector of warningSelectors) {
+                if (node.matches?.(selector)) {
+                    return true;
+                }
+            }
+            
+            // Check if any child elements match warning selectors
+            for (const selector of warningSelectors) {
+                if (node.querySelector?.(selector)) {
+                    return true;
+                }
+            }
+            
+            return false;
+        },
+
         // Trigger ad detection cycle
         triggerAdDetection: () => {
             if (window.AdSpeedHandler?.processor?.cycle) {
@@ -59,6 +86,7 @@ const MediaObserver = (() => {
         onDomChange: (changeList) => {
             let hasVideoChanges = false;
             let hasAdChanges = false;
+            let hasWarningChanges = false;
             
             for (const change of changeList) {
                 // Handle childList changes (elements added/removed)
@@ -73,18 +101,23 @@ const MediaObserver = (() => {
                         hasVideoChanges = true;
                     }
 
-                    // Check for ad elements being added
-                    const adElementsAdded = Array.from(change.addedNodes).some(node => 
+                    // Check for ad elements being added/removed
+                    const adElementsChanged = Array.from([...change.addedNodes, ...change.removedNodes]).some(node => 
                         adDetectionManager.hasAdElements(node)
                     );
                     
-                    // Check for ad elements being removed
-                    const adElementsRemoved = Array.from(change.removedNodes).some(node => 
-                        adDetectionManager.hasAdElements(node)
+                    // Check for ad blocker warning elements being added
+                    const warningElementsAdded = Array.from(change.addedNodes).some(node => 
+                        adDetectionManager.hasAdBlockerWarning(node)
                     );
                     
-                    if (adElementsAdded || adElementsRemoved) {
+                    if (adElementsChanged) {
                         hasAdChanges = true;
+                    }
+                    
+                    if (warningElementsAdded) {
+                        hasWarningChanges = true;
+                        console.log("Ad blocker warning detected via MutationObserver");
                     }
                 }
                 
@@ -103,8 +136,8 @@ const MediaObserver = (() => {
                 mediaManager.handleMediaChange();
             }
             
-            // Handle ad changes - trigger detection immediately
-            if (hasAdChanges) {
+            // Handle ad or warning changes - trigger detection immediately
+            if (hasAdChanges || hasWarningChanges) {
                 // Small delay to ensure DOM is settled
                 setTimeout(() => {
                     adDetectionManager.triggerAdDetection();
