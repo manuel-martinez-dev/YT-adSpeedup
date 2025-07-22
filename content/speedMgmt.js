@@ -1,12 +1,11 @@
 'use strict';
 
 const AdSpeedHandler = (() => {
-    // Configuration constants
+    // Configuration constants - removed POLLING_DELAY
     const CONFIG = {
-        POLLING_DELAY: 250,
         TARGET_VELOCITY: 32,
-        BACKUP_VELOCITIES: [50, 32, 16, 8], // Using the working version's velocities
-        AD_SELECTOR: '.ad-showing, .ad-interrupting', // Check both selectors
+        BACKUP_VELOCITIES: [50, 32, 16, 8],
+        AD_SELECTOR: '.ad-showing, .ad-interrupting',
         BLOCKER_WARNING_SELECTOR: 'ytd-enforcement-message-view-model #container'
     };
 
@@ -38,6 +37,7 @@ const AdSpeedHandler = (() => {
             // Test primary target first
             if (utils.applyVelocity(CONFIG.TARGET_VELOCITY)) {
                 state.currentVelocity = CONFIG.TARGET_VELOCITY;
+                console.log(`Using target velocity: ${CONFIG.TARGET_VELOCITY}x`);
                 return;
             }
 
@@ -45,20 +45,22 @@ const AdSpeedHandler = (() => {
             for (const velocity of CONFIG.BACKUP_VELOCITIES) {
                 if (utils.applyVelocity(velocity)) {
                     state.currentVelocity = velocity;
+                    console.log(`Using fallback velocity: ${velocity}x`);
                     return;
                 }
             }
 
             // Fallback to safe velocity
             state.currentVelocity = 2;
+            console.log(`Using safe fallback velocity: 2x`);
         },
 
         adjustPlaybackRate: (targetRate) => {
-            utils.applyVelocity(targetRate);
+            return utils.applyVelocity(targetRate);
         }
     };
 
-    // Ad detection and handling - simplified like working version
+    // Ad detection and handling
     const adDetector = {
         checkForAds: () => {
             const adElement = document.querySelector(CONFIG.AD_SELECTOR);
@@ -73,12 +75,14 @@ const AdSpeedHandler = (() => {
         },
 
         handleWarning: () => {
+            console.log("Ad blocker warning detected, reloading page");
             utils.sendCommand("unmute");
             window.location.reload();
         },
 
         processAdStart: () => {
             if (!state.adActive) {
+                console.log("Ad detected - starting speed control");
                 state.adActive = true;
                 state.originalRate = utils.getCurrentRate();
                 
@@ -94,15 +98,17 @@ const AdSpeedHandler = (() => {
         },
 
         processAdEnd: () => {
-            // Simplified like working version - no complex timing
-            state.adActive = false;
-            velocityManager.adjustPlaybackRate(state.originalRate);
-            utils.sendCommand("unmute");
-            utils.sendCommand("adCounter"); // Send the counter increment
+            if (state.adActive) {
+                console.log("Ad finished - restoring normal playback");
+                state.adActive = false;
+                velocityManager.adjustPlaybackRate(state.originalRate);
+                utils.sendCommand("unmute");
+                utils.sendCommand("adCounter");
+            }
         }
     };
 
-    // Main processing cycle - simplified like working version
+    // Main processing cycle 
     const processor = {
         cycle: () => {
             // Only process if player is ready
@@ -130,10 +136,10 @@ const AdSpeedHandler = (() => {
                 state.playerReady = true;
                 state.originalRate = utils.getCurrentRate();
                 console.log("AdSpeedHandler initialized with PlayerManager");
+                
+                // Run initial check in case ad is already present
+                processor.cycle();
             });
-            
-            // Start processing cycle
-            setInterval(processor.cycle, CONFIG.POLLING_DELAY);
         }
     };
 
@@ -144,8 +150,22 @@ const AdSpeedHandler = (() => {
         } else {
             document.addEventListener('DOMContentLoaded', processor.initialize);
         }
+        
+        // Expose processor globally so MutationObserver can call it
+        window.AdSpeedHandler = { 
+            processor, 
+            state,
+            utils 
+        };
     };
 
     bootstrap();
-    return { processor, utils, state };
+    
+    return { 
+        processor, 
+        utils, 
+        state,
+        velocityManager,
+        adDetector
+    };
 })();
