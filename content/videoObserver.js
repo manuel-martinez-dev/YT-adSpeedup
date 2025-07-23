@@ -6,65 +6,64 @@ const MediaObserver = (() => {
 
     const eventHandlers = {
         onPlaybackRateChange: () => {
-            const currentMedia = window.PlayerManager.getMediaElement();
+            const currentMedia = window.PlayerManager?.getMediaElement();
             if (currentMedia) {
                 console.log("Media playback rate modified to:", currentMedia.playbackRate);
+            } else {
+                console.error("Failed to get current media element on rate change.");
             }
         }
     };
 
     const mediaManager = {
         attachRateListener: () => {
-            const currentMedia = window.PlayerManager.getMediaElement();
+            const currentMedia = window.PlayerManager?.getMediaElement();
             if (currentMedia) {
                 currentMedia.addEventListener('ratechange', eventHandlers.onPlaybackRateChange, true);
+            } else {
+                console.error("Failed to attach rate listener: media element not found.");
             }
         },
 
         handleMediaChange: () => {
-            // Refresh PlayerManager when DOM changes
-            window.PlayerManager.refresh();
-            
-            // Re-attach event listeners
-            if (window.PlayerManager.isPlayerReady()) {
-                mediaManager.attachRateListener();
+            try {
+                window.PlayerManager?.refresh();
+                if (window.PlayerManager?.isPlayerReady()) {
+                    mediaManager.attachRateListener();
+                } else {
+                    console.warn("Player not ready during media change handling.");
+                }
+            } catch (error) {
+                console.error("Error handling media change:", error);
             }
         }
     };
 
     const adDetectionManager = {
-        // Check if a node or its children contain ad elements
         hasAdElements: (node) => {
-            if (node.nodeType !== Node.ELEMENT_NODE) return false;
+            if (!node || node.nodeType !== Node.ELEMENT_NODE) return false;
             
-            // Check if the node itself has ad classes
-            if (node.classList?.contains('ad-showing') || 
-                node.classList?.contains('ad-interrupting')) {
+            if (node.classList?.contains('ad-showing') || node.classList?.contains('ad-interrupting')) {
                 return true;
             }
             
-            // Check if any child elements have ad classes
             return node.querySelector?.('.ad-showing, .ad-interrupting') !== null;
         },
 
-        // Check if a node contains ad blocker warning elements
         hasAdBlockerWarning: (node) => {
-            if (node.nodeType !== Node.ELEMENT_NODE) return false;
+            if (!node || node.nodeType !== Node.ELEMENT_NODE) return false;
             
-            // Check for ad blocker warning selectors
             const warningSelectors = [
                 'ytd-enforcement-message-view-model',
                 'ytd-enforcement-message-view-model #container'
             ];
             
-            // Check if the node itself matches warning selectors
             for (const selector of warningSelectors) {
                 if (node.matches?.(selector)) {
                     return true;
                 }
             }
             
-            // Check if any child elements match warning selectors
             for (const selector of warningSelectors) {
                 if (node.querySelector?.(selector)) {
                     return true;
@@ -74,10 +73,11 @@ const MediaObserver = (() => {
             return false;
         },
 
-        // Trigger ad detection cycle
         triggerAdDetection: () => {
-            if (window.AdSpeedHandler?.processor?.cycle) {
-                window.AdSpeedHandler.processor.cycle();
+            try {
+                window.AdSpeedHandler?.processor?.cycle();
+            } catch (error) {
+                console.error("Error triggering ad detection:", error);
             }
         }
     };
@@ -89,103 +89,122 @@ const MediaObserver = (() => {
             let hasWarningChanges = false;
             
             for (const change of changeList) {
-                // Handle childList changes (elements added/removed)
                 if (change.type === 'childList') {
-                    // Check for video element changes
+                    // Video element changes
                     const videoChanges = Array.from(change.addedNodes).some(node => 
                         node.nodeType === Node.ELEMENT_NODE && 
                         (node.tagName === 'VIDEO' || node.querySelector?.('video'))
                     );
-                    
-                    if (videoChanges) {
-                        hasVideoChanges = true;
-                    }
+                    if (videoChanges) hasVideoChanges = true;
 
-                    // Check for ad elements being added/removed
+                    // Ad elements being added/removed
                     const adElementsChanged = Array.from([...change.addedNodes, ...change.removedNodes]).some(node => 
                         adDetectionManager.hasAdElements(node)
                     );
-                    
-                    // Check for ad blocker warning elements being added
+                    if (adElementsChanged) {
+                        hasAdChanges = true;
+                        console.log('🎯 Ad element change detected via childList');
+                    }
+
+                    // Warning elements
                     const warningElementsAdded = Array.from(change.addedNodes).some(node => 
                         adDetectionManager.hasAdBlockerWarning(node)
                     );
-                    
-                    if (adElementsChanged) {
-                        hasAdChanges = true;
-                    }
-                    
                     if (warningElementsAdded) {
                         hasWarningChanges = true;
                         console.log("Ad blocker warning detected via MutationObserver");
                     }
-                }
-                
-                // Handle attribute changes (class modifications)
+                } 
                 else if (change.type === 'attributes' && change.attributeName === 'class') {
                     const target = change.target;
-                    if (target.classList?.contains('ad-showing') || 
-                        target.classList?.contains('ad-interrupting')) {
+                    
+                    // Check if element got/lost ad classes
+                    if (target.classList?.contains('ad-showing') || target.classList?.contains('ad-interrupting')) {
                         hasAdChanges = true;
+                        console.log('🎯 Ad class added:', target.className);
+                    } else {
+                        // Check if class was removed (element might still be in DOM)
+                        const hadAdClass = change.oldValue?.includes('ad-showing') || change.oldValue?.includes('ad-interrupting');
+                        if (hadAdClass) {
+                            hasAdChanges = true;
+                            console.log('🎯 Ad class removed from:', target.tagName);
+                        }
                     }
                 }
             }
             
-            // Handle video changes
             if (hasVideoChanges) {
                 mediaManager.handleMediaChange();
             }
             
-            // Handle ad or warning changes - trigger detection immediately
             if (hasAdChanges || hasWarningChanges) {
-                // Small delay to ensure DOM is settled
+                // Immediate detection
+                adDetectionManager.triggerAdDetection();
+                
+                // Additional check after brief delay for rapid changes
                 setTimeout(() => {
                     adDetectionManager.triggerAdDetection();
-                }, 10);
+                }, 100);
+                
+                // Extra safety check for class removal events
+                if (hasAdChanges) {
+                    setTimeout(() => {
+                        adDetectionManager.triggerAdDetection();
+                    }, 500);
+                }
             }
         },
 
         startWatching: () => {
-            if (!isWatching) {
+            if (!isWatching && typeof MutationObserver !== 'undefined') {
                 domWatcher = new MutationObserver(domObserver.onDomChange);
                 domWatcher.observe(document.documentElement, { 
-                    childList: true,          // Watch for elements being added/removed
-                    subtree: true,            // Watch all descendants
-                    attributes: true,         // Watch for attribute changes
-                    attributeFilter: ['class'] // Only watch class attribute changes
+                    childList: true,              // Watch for elements being added/removed
+                    subtree: true,                // Watch all descendants
+                    attributes: true,             // Watch for attribute changes
+                    attributeFilter: ['class'],   // Only watch class changes (YouTube's method)
+                    attributeOldValue: true       // Track old values to detect removals
                 });
                 isWatching = true;
-                console.log("MediaObserver started watching for video and ad changes");
+                console.log("🛡️ Enhanced MediaObserver started - comprehensive ad detection");
+            } else if (isWatching) {
+                console.warn("MediaObserver is already watching.");
+            } else {
+                console.error("MutationObserver is not supported.");
             }
         }
     };
 
     const speedController = {
         adjustPlaybackVelocity: (newRate) => {
-            const success = window.PlayerManager.setVelocity(newRate);
-            if (success) {
-                console.log("Media velocity adjusted to:", newRate);
-            } else {
-                console.log("Failed to adjust media velocity");
+            try {
+                const success = window.PlayerManager?.setVelocity(newRate);
+                if (success) {
+                    console.log("Media velocity adjusted to:", newRate);
+                } else {
+                    console.warn("Failed to adjust media velocity");
+                }
+            } catch (error) {
+                console.error("Error adjusting playback velocity:", error);
             }
         }
     };
 
     const initialize = () => {
-        // Wait for PlayerManager to be ready
-        window.PlayerManager.onReady(() => {
-            mediaManager.attachRateListener();
-            console.log("MediaObserver connected to PlayerManager");
-        });
-        
-        // Start DOM observation
-        domObserver.startWatching();
-        
-        // Expose global speed control
-        window.changeSpeed = speedController.adjustPlaybackVelocity;
+        try {
+            window.PlayerManager?.onReady(() => {
+                mediaManager.attachRateListener();
+                console.log("MediaObserver connected to PlayerManager");
+            });
+            
+            domObserver.startWatching();
+            
+            window.changeSpeed = speedController.adjustPlaybackVelocity;
+        } catch (error) {
+            console.error("Error during MediaObserver initialization:", error);
+        }
     };
 
-    // Start the system
     initialize();
 
     return {
