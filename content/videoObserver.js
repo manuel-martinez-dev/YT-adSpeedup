@@ -8,7 +8,7 @@ const MediaObserver = (() => {
         onPlaybackRateChange: () => {
             const currentMedia = window.PlayerManager?.getMediaElement();
             if (currentMedia) {
-                console.log("Media playback rate modified to:", currentMedia.playbackRate);
+                // console.log("Media playback rate modified to:", currentMedia.playbackRate);
             } else {
                 console.error("Failed to get current media element on rate change.");
             }
