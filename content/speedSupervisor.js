@@ -20,11 +20,11 @@ const VelocityController = (() => {
     const rateController = {
         modifyPlaybackRate: (targetRate) => {
             if (!elementManager.isReady()) {
-                console.log("VelocityController not ready, cannot modify rate");
+                // console.log("VelocityController not ready, cannot modify rate");
                 return false;
             }
             
-            console.log("VelocityController modifying playback rate to:", targetRate);
+            // console.log("VelocityController modifying playback rate to:", targetRate);
             return window.PlayerManager.setVelocity(targetRate);
         },
 
@@ -63,7 +63,7 @@ const VelocityController = (() => {
     const initialize = () => {
         elementManager.waitForPlayerManager(() => {
             controllerReady = true;
-            console.log("VelocityController initialized with PlayerManager");
+            // console.log("VelocityController initialized with PlayerManager");
         });
     };
 

@@ -43,7 +43,7 @@ const AdSpeedHandler = (() => {
             // Test primary target first
             if (utils.applyVelocity(CONFIG.TARGET_VELOCITY)) {
                 state.currentVelocity = CONFIG.TARGET_VELOCITY;
-                console.log(`Using target velocity: ${CONFIG.TARGET_VELOCITY}x`);
+                // console.log(`Using target velocity: ${CONFIG.TARGET_VELOCITY}x`);
                 return;
             }
 
@@ -51,14 +51,14 @@ const AdSpeedHandler = (() => {
             for (const velocity of CONFIG.BACKUP_VELOCITIES) {
                 if (utils.applyVelocity(velocity)) {
                     state.currentVelocity = velocity;
-                    console.log(`Using fallback velocity: ${velocity}x`);
+                    // console.log(`Using fallback velocity: ${velocity}x`);
                     return;
                 }
             }
 
             // Fallback to safe velocity
             state.currentVelocity = 2;
-            console.log(`Using safe fallback velocity: 2x`);
+            // console.log(`Using safe fallback velocity: 2x`);
         },
 
         adjustPlaybackRate: (targetRate) => {
@@ -100,12 +100,12 @@ const AdSpeedHandler = (() => {
             
             // Check for inconsistent state
             if (state.adActive && !detection.adPresent) {
-                console.warn('🛡️ State inconsistency: adActive=true but no ad found');
+                console.warn('State inconsistency: adActive=true but no ad found');
                 return false;
             }
             
             if (!state.adActive && detection.adPresent) {
-                console.warn('🛡️ State inconsistency: adActive=false but ad found');
+                console.warn('State inconsistency: adActive=false but ad found');
                 return false;
             }
             
@@ -113,20 +113,20 @@ const AdSpeedHandler = (() => {
         },
 
         forceStateSync: () => {
-            console.log('🛡️ Forcing state synchronization');
+            // console.log('Forcing state synchronization');
             const detection = adDetector.checkForAds();
             
             if (detection.adPresent && !state.adActive) {
-                console.log('🛡️ Syncing: Starting ad state');
+                // console.log('Syncing: Starting ad state');
                 adDetector.processAdStart();
             } else if (!detection.adPresent && state.adActive) {
-                console.log('🛡️ Syncing: Ending ad state');
+                // console.log('Syncing: Ending ad state');
                 adDetector.processAdEnd();
             }
         },
 
         handleWarning: () => {
-            console.log("🛡️ Ad blocker warning detected - reloading page");
+            // console.log("Ad blocker warning detected - reloading page");
             utils.sendCommand("unmute");
             
             // Small delay to ensure unmute command is processed
@@ -137,7 +137,7 @@ const AdSpeedHandler = (() => {
 
         processAdStart: () => {
             if (!state.adActive) {
-                console.log("🎯 Ad detected - starting speed control");
+                // console.log("Ad detected - starting speed control");
                 state.adActive = true;
                 state.adStartTime = Date.now();
                 state.originalRate = utils.getCurrentRate();
@@ -155,7 +155,7 @@ const AdSpeedHandler = (() => {
 
         processAdEnd: () => {
             if (state.adActive) {
-                console.log("✅ Ad finished - restoring normal playback");
+                // console.log("Ad finished - restoring normal playback");
                 state.adActive = false;
                 state.adStartTime = null;
                 velocityManager.adjustPlaybackRate(state.originalRate);
@@ -172,7 +172,7 @@ const AdSpeedHandler = (() => {
             if (!document.hidden) { // Tab became visible
                 setTimeout(() => {
                     if (!adDetector.validateState()) {
-                        console.warn('🛡️ Fixed state inconsistency on tab focus');
+                        console.warn('Fixed state inconsistency on tab focus');
                         adDetector.forceStateSync();
                     }
                 }, 1000);
@@ -187,7 +187,7 @@ const AdSpeedHandler = (() => {
                 video.addEventListener('play', () => {
                     setTimeout(() => {
                         if (state.adActive && !adDetector.checkForAds().adPresent) {
-                            console.warn('🛡️ Video playing but stuck in ad state - fixing');
+                            console.warn('Video playing but stuck in ad state - fixing');
                             adDetector.processAdEnd();
                         }
                     }, 1000);
@@ -196,7 +196,7 @@ const AdSpeedHandler = (() => {
                 // Check state consistency when video pauses
                 video.addEventListener('pause', () => {
                     if (!adDetector.validateState()) {
-                        console.warn('🛡️ State inconsistency on pause - fixing');
+                        console.warn('State inconsistency on pause - fixing');
                         adDetector.forceStateSync();
                     }
                 });
@@ -209,7 +209,7 @@ const AdSpeedHandler = (() => {
                 const adDuration = Date.now() - state.adStartTime;
                 // If ad has been "playing" for more than 3 minutes, force cleanup
                 if (adDuration > 180000) { // 3 minutes
-                    console.warn('🛡️ Ad timeout detected - forcing cleanup');
+                    console.warn('Ad timeout detected - forcing cleanup');
                     adDetector.processAdEnd();
                 }
             }
@@ -222,7 +222,7 @@ const AdSpeedHandler = (() => {
                 // Validate that ad is actually still there
                 const detection = adDetector.checkForAds();
                 if (!detection.adPresent) {
-                    console.warn('🛡️ Periodic check found no ad but state is active - fixing');
+                    console.warn('Periodic check found no ad but state is active - fixing');
                     adDetector.processAdEnd();
                 }
                 
@@ -246,7 +246,7 @@ const AdSpeedHandler = (() => {
                 defensiveSystem.periodicCheck();
             }, 5000); // Check every 5 seconds, only when needed
 
-            console.log('🛡️ Defensive systems initialized');
+            // console.log('Defensive systems initialized');
         }
     };
 
@@ -282,9 +282,7 @@ const AdSpeedHandler = (() => {
             // Wait for PlayerManager to be ready
             window.PlayerManager?.onReady(() => {
                 state.playerReady = true;
-                state.originalRate = utils.getCurrentRate();
-                console.log("🚀 AdSpeedHandler initialized with defensive systems");
-                
+                state.originalRate = utils.getCurrentRate();                
                 // Initialize defensive systems
                 defensiveSystem.initialize();
                 

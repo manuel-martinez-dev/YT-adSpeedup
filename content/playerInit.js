@@ -88,7 +88,7 @@ window.PlayerManager = (() => {
             retryTimer = setInterval(() => {
                 if (elementLocator.findElements()) {
                     clearInterval(retryTimer);
-                    console.log("Player management system ready");
+                    // console.log("Player management system ready");
                 }
             }, RETRY_INTERVAL);
         },

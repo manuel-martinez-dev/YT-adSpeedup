@@ -103,7 +103,7 @@ const MediaObserver = (() => {
                     );
                     if (adElementsChanged) {
                         hasAdChanges = true;
-                        console.log('🎯 Ad element change detected via childList');
+                        // console.log('Ad element change detected via childList');
                     }
 
                     // Warning elements
@@ -112,7 +112,7 @@ const MediaObserver = (() => {
                     );
                     if (warningElementsAdded) {
                         hasWarningChanges = true;
-                        console.log("Ad blocker warning detected via MutationObserver");
+                        // console.log("Ad blocker warning detected via MutationObserver");
                     }
                 } 
                 else if (change.type === 'attributes' && change.attributeName === 'class') {
@@ -121,13 +121,13 @@ const MediaObserver = (() => {
                     // Check if element got/lost ad classes
                     if (target.classList?.contains('ad-showing') || target.classList?.contains('ad-interrupting')) {
                         hasAdChanges = true;
-                        console.log('🎯 Ad class added:', target.className);
+                        // console.log('Ad class added:', target.className);
                     } else {
                         // Check if class was removed (element might still be in DOM)
                         const hadAdClass = change.oldValue?.includes('ad-showing') || change.oldValue?.includes('ad-interrupting');
                         if (hadAdClass) {
                             hasAdChanges = true;
-                            console.log('🎯 Ad class removed from:', target.tagName);
+                        // console.log('Ad class removed from:', target.tagName);
                         }
                     }
                 }
@@ -166,11 +166,11 @@ const MediaObserver = (() => {
                     attributeOldValue: true       // Track old values to detect removals
                 });
                 isWatching = true;
-                console.log("🛡️ Enhanced MediaObserver started - comprehensive ad detection");
+                // console.log("Enhanced MediaObserver started");
             } else if (isWatching) {
-                console.warn("MediaObserver is already watching.");
+                // console.warn("MediaObserver is already watching.");
             } else {
-                console.error("MutationObserver is not supported.");
+                // console.error("MutationObserver is not supported.");
             }
         }
     };
@@ -180,9 +180,9 @@ const MediaObserver = (() => {
             try {
                 const success = window.PlayerManager?.setVelocity(newRate);
                 if (success) {
-                    console.log("Media velocity adjusted to:", newRate);
+                    // console.log("Media velocity adjusted to:", newRate);
                 } else {
-                    console.warn("Failed to adjust media velocity");
+                    // console.warn("Failed to adjust media velocity");
                 }
             } catch (error) {
                 console.error("Error adjusting playback velocity:", error);
@@ -194,7 +194,7 @@ const MediaObserver = (() => {
         try {
             window.PlayerManager?.onReady(() => {
                 mediaManager.attachRateListener();
-                console.log("MediaObserver connected to PlayerManager");
+                // console.log("MediaObserver connected to PlayerManager");
             });
             
             domObserver.startWatching();
