@@ -77,9 +77,8 @@ const AdSpeedHandler = (() => {
             
             // Additional ad indicators for reliability
             const additionalAdIndicators = [
-                document.querySelector('.ytp-ad-overlay-container'),
-                document.querySelector('.ytp-ad-skip-button'),
-                document.querySelector('.ytp-ad-duration-remaining')
+                document.querySelector('.ytp-ad-player-overlay-layout'),
+                document.querySelector('.ytp-skip-ad-button'),
             ].some(el => el !== null);
 
             // Warning detection
