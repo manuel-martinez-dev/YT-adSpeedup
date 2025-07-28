@@ -126,8 +126,9 @@ const AdSpeedHandler = (() => {
 
         handleWarning: () => {
             // console.log("Ad blocker warning detected - reloading page");
+            utils.sendCommand("warningDetected");
             utils.sendCommand("unmute");
-            
+            utils.sendCommand("pageReload");
             // Small delay to ensure unmute command is processed
             setTimeout(() => {
                 window.location.reload();

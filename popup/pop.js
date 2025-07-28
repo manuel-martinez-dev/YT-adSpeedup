@@ -23,11 +23,18 @@ function formatNumber(num) {
 }
 
 function updateStats() {
-    chrome.storage.sync.get(['adCounter'], function(items) {
+    chrome.storage.sync.get(['adCounter', 'warningCounter', 'reloadCounter'], function(items) {
         const adCountered = items.adCounter || 0;
+        const warningHit = items.warningCounter || 0;
+        const reloadCount = items.reloadCounter || 0;
         
         // Update ads skipped display
         document.getElementById('adCounter').textContent = formatNumber(adCountered);
+        document.getElementById('warningCounter').textContent = formatNumber(warningHit);
+        document.getElementById('refreshCount').textContent = formatNumber(reloadCount);
+
+        // Debugging output
+        console.log('stats updated:', { adCountered, warningHit, reloadCount });
     });
 }
 
@@ -35,8 +42,15 @@ function resetStatistics() {
     if (confirm('Are you sure you want to reset stats?')) {
         chrome.storage.sync.set({ 
             'adCounter': 0,
+            'warningCounter': 0,
+            'reloadCounter': 0
         }, function() {
-            updateStats();
+            if (chrome.runtime.lastError) {
+                console.error('Error resetting statistics:', chrome.runtime.lastError);
+            } else {
+                console.log('Statistics reset successfully');
+                updateStats();
+            }
         });
     }
 }

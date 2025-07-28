@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "YT Ad Speedup",
-  "version": "1.1.7",
+  "version": "1.1.8",
   "description": "Speeds up YT ads",
   
   "permissions": [

@@ -5,7 +5,7 @@ body {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: #333;
     width: 320px;
-    min-height: 400px;
+    min-height: 470px;
 }
 
 .container {
@@ -47,7 +47,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 15px;
+    margin-bottom: 13px;
 }
 
 .stat-item:last-child {
@@ -55,15 +55,27 @@ body {
 }
 
 .stat-label {
-    font-size: 0.95rem;
+    font-size: 0.8rem;
     color: #666;
     font-weight: 500;
 }
 
 .stat-value {
-    font-size: 1.8rem;
+    font-size: 1.5rem;
     font-weight: 700;
     color: #4a5568;
+}
+
+.stat-item:nth-child(1) .stat-value {
+    color: #38a169;
+}
+
+.stat-item:nth-child(2) .stat-value {
+    color: #f08521;
+}
+
+.stat-item:nth-child(3) .stat-value { 
+    color: #f02517;
 }
 
 .status {
