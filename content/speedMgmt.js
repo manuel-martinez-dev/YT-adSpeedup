@@ -86,6 +86,10 @@ const AdSpeedHandler = (() => {
                             buttons: 1
                         });
                         element.dispatchEvent(event);
+
+                        if (index === mouseEvent.length - 1) {
+                            console.log('skip button clicked');
+                        }
                     }, index * 50); // Slight delay between events
                     });
 
@@ -127,7 +131,7 @@ const AdSpeedHandler = (() => {
 
         // Skip button checker
         checkSkipButton: () => {
-            const skipButton = document.querySelector('button.ytp-skip-ad-button');
+            const skipButton = document.querySelectorAll('button.ytp-skip-ad-button');
 
             skipButton.forEach(button => {
                 // run if button is not processed
