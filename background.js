@@ -8,7 +8,7 @@ chrome.runtime.onInstalled.addListener((details) => {
 
 // Handle ad count increment
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.action !== "adCounter") {
+  if (message.action !== "adCounter") return;
   chrome.storage.sync.get("adCounter", (items) => {
     const currentCount = items.adCounter || 0;
     chrome.storage.sync.set({ 
@@ -17,10 +17,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (chrome.runtime.lastError) {
         console.error('Error updating adCounter:', chrome.runtime.lastError);
       }
-      });
     });
-  }
   });
+});
 
 // Handle warning message
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
