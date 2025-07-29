@@ -66,6 +66,79 @@ const AdSpeedHandler = (() => {
         }
     };
 
+    // Skip button manager system
+    const skipButtonManager = {
+        processedButton: new WeakSet(),
+
+        clickLikeHuman: (element) => { 
+            if (!element || !element.click) return false;
+
+            try { 
+                // Try to make click seem more realistic
+                const mouseEvent = [ 'mousedown', 'mouseup', 'click'];
+
+                mouseEvent.forEach((eventype, index) => {
+                    setTimeout(() => { 
+                        const event = new MouseEvent(eventype, {
+                            bubbles: true,
+                            cancelable: true,
+                            view: window,
+                            buttons: 1
+                        });
+                        element.dispatchEvent(event);
+                    }, index * 50); // Slight delay between events
+                    });
+
+                    console.log('skip button clicked');
+                    return true;
+            } catch (error) {
+                console.error('Error clicking skip button:', error);
+                return false;
+            }
+        },
+
+        // check if button is present and clickable
+        isClicked: (button) => {
+            if (!button) return false;
+
+            // is button visible and enabled?
+            const style = window.getComputedStyle(button);
+            const isVisible = style.display !== 'none' &&
+                style.visibility !== 'hidden' &&
+                style.opacity !== '0';
+            const isEnabled = !button.disabled && 
+                               !button.hasAttribute('disabled');
+                               
+            return isVisible && isEnabled;                   
+        },
+
+        // Main skip button handler
+        handleSkipButton: (button) => {
+            if (skipButtonManager.processedButton.has(button)) {
+                return;
+            }
+            skipButtonManager.processedButton.add(button);
+            setTimeout(() => {
+                if (skipButtonManager.isClicked(button)) {
+                    skipButtonManager.clickLikeHuman(button);
+                }
+            }, 500);
+        },
+
+        // Skip button checker
+        checkSkipButton: () => {
+            const skipButton = document.querySelector('button.ytp-skip-ad-button');
+
+            skipButton.forEach(button => {
+                // run if button is not processed
+                if (!skipButtonManager.processedButton.has(button)) {
+                    skipButtonManager.handleSkipButton(button);
+                }
+            });
+        }
+    };
+
+
     // Enhanced ad detection with multiple methods
     const adDetector = {
         checkForAds: () => {
@@ -151,6 +224,11 @@ const AdSpeedHandler = (() => {
             
             velocityManager.adjustPlaybackRate(state.currentVelocity);
             utils.sendCommand("mute");
+
+            // Start skip button checker after delay
+            setTimeout(() => {
+                skipButtonManager.checkSkipButton();
+            }, 1000);
         },
 
         processAdEnd: () => {
@@ -307,6 +385,9 @@ const AdSpeedHandler = (() => {
             utils,
             adDetector
         };
+
+        // Skip button manager gloabally - might change in the future
+        window.SkipButtonManager = skipButtonManager;
     };
 
     bootstrap();
@@ -317,6 +398,7 @@ const AdSpeedHandler = (() => {
         state,
         velocityManager,
         adDetector,
-        defensiveSystem
+        defensiveSystem,
+        skipButtonManager
     };
 })();
