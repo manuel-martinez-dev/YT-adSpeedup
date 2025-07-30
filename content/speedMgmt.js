@@ -17,7 +17,8 @@ const AdSpeedHandler = (() => {
         velocityTested: false,
         playerReady: false,
         adStartTime: null,
-        lastAdCheck: null
+        lastAdCheck: null,
+        warningInProgress: false
     };
 
     // Utilities that use PlayerManager
@@ -243,6 +244,13 @@ const AdSpeedHandler = (() => {
         },
 
         handleWarning: () => {
+            // Prevent multiple warning handling in quick succession
+        if (state.warningInProgress) {
+            return;
+        }
+        
+            // Mark warning as being handled
+        state.warningInProgress = true;
             // console.log("Ad blocker warning detected - reloading page");
             utils.sendCommand("warningDetected");
             utils.sendCommand("unmute");
