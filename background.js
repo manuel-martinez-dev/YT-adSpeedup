@@ -54,14 +54,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 // handle trusted clicks via debugger API
-chrome.debugger.onMessage((message, sender, sendResponse) => {
+chrome.runtime.onMessage((message, sender, sendResponse) => {
   if (message.action === "trustedSkipClick") {
     const target = { tabId: sender.tab.id };
 
     chrome.debugger.attach(target, "1.2", function() { 
       if (chrome.runtime.lastError) {
         console.error('Debugger attach failed:', chrome.runtime.lastError);
-        sendResponse({ success: false, erro: chrome.runtime.lastError.message });
+        sendResponse({ success: false, error: chrome.runtime.lastError.message });
         return;
       }
       console.log('Debugger attached - processing click');

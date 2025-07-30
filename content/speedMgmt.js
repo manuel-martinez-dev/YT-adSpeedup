@@ -108,7 +108,7 @@ const AdSpeedHandler = (() => {
         },
 
         // Click method via debugger API
-        clickwithTrustedEvent: (element) => {
+        clickWithTrustedEvent: (element) => {
             if (!element) return false;
             try {
 
@@ -118,7 +118,7 @@ const AdSpeedHandler = (() => {
                 const y = Math.round(rect.top + rect.height /2);
 
                 // Check if position is valid
-                if (x < 0 || y < 0 || x > window.innerWidth || y > window.inerrHeigght) {
+                if (x < 0 || y < 0 || x > window.innerWidth || y > window.innerHeight) {
                     console.warn('Skip button is out of bounds, using fallback click');
                     return skipButtonManager.clickLikeHuman(element);
                 }
@@ -157,7 +157,7 @@ const AdSpeedHandler = (() => {
             skipButtonManager.processedButton.add(button);
             setTimeout(() => {
                 if (skipButtonManager.isClicked(button)) {
-                    skipButtonManager.clickwithTrustedEvent(button);
+                    skipButtonManager.clickWithTrustedEvent(button);
                 }
             }, 500);
         },
