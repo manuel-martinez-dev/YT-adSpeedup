@@ -54,7 +54,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 // handle trusted clicks via debugger API
-chrome.runtime.onMessage((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "trustedSkipClick") {
     const target = { tabId: sender.tab.id };
 
