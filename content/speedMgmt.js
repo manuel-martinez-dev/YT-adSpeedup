@@ -30,13 +30,21 @@ const AdSpeedHandler = (() => {
         
         sendCommand: (command, data = {}) => {
             try {
-                chrome.runtime.sendMessage({ action: command, ...data }, (response) => {
-                    if (chrome.runtime.lastError) {
-                        console.error('Runtime message error:', chrome.runtime.lastError);
-                    } else if (command === "trustedSkipClick") {
-                        console.log('Trusted Click response:', response);
-                    }
-                });
+                // Only expect response for commands that actually send one
+                const expectsResponse = command === "trustedSkipClick";
+                
+                if (expectsResponse) {
+                    chrome.runtime.sendMessage({ action: command, ...data }, (response) => {
+                        if (chrome.runtime.lastError) {
+                            console.error(`Runtime message error ${command}:`, chrome.runtime.lastError);
+                        } else {
+                            console.log(`${command} click response:`, response);
+                        }
+                    });
+                } else {
+                    // Fire and forget for commands that don't need responses
+                    chrome.runtime.sendMessage({ action: command, ...data });
+                }
             } catch (error) {
                 console.error('Error sending command:', command, error);
             }
