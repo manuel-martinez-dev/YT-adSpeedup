@@ -53,6 +53,54 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
+// handle trusted clicks via debugger API
+chrome.debugger.onMessage((message, sender, sendResponse) => {
+  if (message.action === "trustedSkipClick") {
+    const target = { tabId: sender.tab.id };
+
+    chrome.debugger.attach(target, "1.2", function() { 
+      if (chrome.runtime.lastError) {
+        console.error('Debugger attach failed:', chrome.runtime.lastError);
+        sendResponse({ success: false, erro: chrome.runtime.lastError.message });
+        return;
+      }
+      console.log('Debugger attached - processing click');
+
+      // Mouse interaction sequence for trusted click
+      chrome.debugger.sendCommand(target, "Input.dispatchMouseEvent", {
+        type: "mouseMoved",
+        x: message.x,
+        y: message.y,
+      }, () => {
+        chrome.debugger.sendCommand(target, "Input.dispatchMouseEvent", {
+          type: "mousePressed",
+          button: "left",
+          x: message.x,
+          y: message.y,
+          clickCount: 1,
+        }, () => {
+          setTimeout(() => {
+            chrome.debugger.sendCommand(target, "Input.dispatchMouseEvent", {
+              type: "mouseReleased",
+              button: "left",
+              x: message.x,
+              y: message.y,
+              clickCount: 1,
+            }, () => {
+              chrome.debugger.detach(target);
+              console.log('Trusted click completed');
+              sendResponse({ success: true });
+
+            });
+          }, 50);
+        });
+      });
+  });
+
+      return true;
+}
+});
+
 // Handle tab muting for ads
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "mute") {

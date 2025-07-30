@@ -28,9 +28,15 @@ const AdSpeedHandler = (() => {
         
         applyVelocity: (velocity) => window.PlayerManager?.setVelocity(velocity),
         
-        sendCommand: (command) => {
+        sendCommand: (command, data = {}) => {
             try {
-                chrome.runtime.sendMessage({ action: command });
+                chrome.runtime.sendMessage({ action: command, ...data }, (response) => {
+                    if (chrome.runtime.lastError) {
+                        console.error('Runtime message error:', chrome.runtime.lastError);
+                    } else if (command === "trustedSkipClick") {
+                        console.log('Trusted Click response:', response);
+                    }
+                });
             } catch (error) {
                 console.error('Error sending command:', command, error);
             }
@@ -101,6 +107,33 @@ const AdSpeedHandler = (() => {
             }
         },
 
+        // Click method via debugger API
+        clickwithTrustedEvent: (element) => {
+            if (!element) return false;
+            try {
+
+                // Get element position
+                const rect = element.getBoundingClientRect();
+                const x = Math.round(rect.left + rect.width /2);
+                const y = Math.round(rect.top + rect.height /2);
+
+                // Check if position is valid
+                if (x < 0 || y < 0 || x > window.innerWidth || y > window.inerrHeigght) {
+                    console.warn('Skip button is out of bounds, using fallback click');
+                    return skipButtonManager.clickLikeHuman(element);
+                }
+                console.log(`Trusted click at (${x}, ${y})`);
+
+                // Send click to background script
+                utils.sendCommand("trustedSkipClick", { x, y });
+                return true;
+            } catch (error) {
+                console.error('Error with trusted click:', error);
+                // Fallback to human-like click
+                return skipButtonManager.clickLikeHuman(element);
+            }
+        },
+
         // check if button is present and clickable
         isClicked: (button) => {
             if (!button) return false;
@@ -124,7 +157,7 @@ const AdSpeedHandler = (() => {
             skipButtonManager.processedButton.add(button);
             setTimeout(() => {
                 if (skipButtonManager.isClicked(button)) {
-                    skipButtonManager.clickLikeHuman(button);
+                    skipButtonManager.clickwithTrustedEvent(button);
                 }
             }, 500);
         },
@@ -391,7 +424,7 @@ const AdSpeedHandler = (() => {
         };
 
         // Skip button manager gloabally - might change in the future
-        window.SkipButtonManager = skipButtonManager;
+        window.SkipButtonManage = skipButtonManager;
     };
 
     bootstrap();
