@@ -18,7 +18,8 @@ const AdSpeedHandler = (() => {
         playerReady: false,
         adStartTime: null,
         lastAdCheck: null,
-        warningInProgress: false
+        warningInProgress: false,
+        debuggerConsent: false
     };
 
     // Utilities that use PlayerManager
@@ -49,7 +50,13 @@ const AdSpeedHandler = (() => {
             } catch (error) {
                 console.error('Error sending command:', command, error);
             }
-        }
+        },
+             // Load debugger consent from storage
+        loadDebuggerConsent: () => {
+            chrome.storage.sync.get(['debuggerConsent'], (items) => {
+                state.debuggerConsent = items.debuggerConsent || false;
+            });
+        }   
     };
 
     // Speed optimization system
@@ -119,6 +126,11 @@ const AdSpeedHandler = (() => {
         // Click method via debugger API
         clickWithTrustedEvent: (element) => {
             if (!element) return false;
+
+              if (!state.debuggerConsent) {
+                console.log('Debugger not given fallback running');
+                return skipButtonManager.clickLikeHuman(element);
+            }
             try {
 
                 // Get element position
@@ -413,7 +425,19 @@ const AdSpeedHandler = (() => {
             // Wait for PlayerManager to be ready
             window.PlayerManager?.onReady(() => {
                 state.playerReady = true;
-                state.originalRate = utils.getCurrentRate();                
+                state.originalRate = utils.getCurrentRate(); 
+                
+                // Load debugger consent from storage
+                utils.loadDebuggerConsent();
+                
+                // Listen for consent changes
+                chrome.storage.onChanged.addListener((changes, namespace) => {
+                    if (namespace === 'sync' && changes.debuggerConsent) {
+                        state.debuggerConsent = changes.debuggerConsent.newValue || false;
+                        console.log('Debugger consent updated:', state.debuggerConsent);
+                    }
+                });
+                
                 // Initialize defensive systems
                 defensiveSystem.initialize();
                 

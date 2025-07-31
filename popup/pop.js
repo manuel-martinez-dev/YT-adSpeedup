@@ -1,8 +1,12 @@
 document.addEventListener('DOMContentLoaded', function() {
     updateStats();
+    loadDebuggerConsent();
     
     // Reset button functionality
     document.getElementById('resetStats').addEventListener('click', resetStatistics);
+
+     // Debugger consent toggle
+    document.getElementById('debuggerConsent').addEventListener('change', handleDebuggerConsentChange);
     
     // Listen for real-time updates
     chrome.storage.onChanged.addListener(function(changes, namespace) {
@@ -37,6 +41,53 @@ function updateStats() {
         console.log('stats updated:', { adCountered, warningHit, reloadCount });
     });
 }
+
+function loadDebuggerConsent() {
+    chrome.storage.sync.get(['debuggerConsent'], function(items) {
+        const consent = items.debuggerConsent || false;
+        document.getElementById('debuggerConsent').checked = consent;
+        console.log('Loaded debugger consent:', consent);
+    });
+}
+
+function handleDebuggerConsentChange(event) {
+    const isEnabled = event.target.checked;
+    
+    if (isEnabled) {
+        // Show confirmation dialog
+        const confirmed = confirm(
+            'Enhanced Skip Click uses the browser debugger API to provide more reliable clicking.\n\n' +
+            'This requires additional permissions but can improve ad skipping effectiveness.\n\n' +
+            'Do you want to enable this feature?'
+        );
+        
+        if (confirmed) {
+            chrome.storage.sync.set({ 'debuggerConsent': true }, function() {
+                if (chrome.runtime.lastError) {
+                    console.error('Error saving debugger consent:', chrome.runtime.lastError);
+                    event.target.checked = false;
+                } else {
+                    // Notify background script
+                    chrome.runtime.sendMessage({ action: 'debuggerConsentChanged', enabled: true });
+                }
+            });
+        } else {
+            // User declined, keep toggle off
+            event.target.checked = false;
+        }
+    } else {
+        // Disable the feature
+        chrome.storage.sync.set({ 'debuggerConsent': false }, function() {
+            if (chrome.runtime.lastError) {
+                console.error('Error saving debugger consent:', chrome.runtime.lastError);
+            } else {
+                // Notify background script
+                chrome.runtime.sendMessage({ action: 'debuggerConsentChanged', enabled: false });
+            }
+        });
+    }
+}
+
 
 function resetStatistics() {
     if (confirm('Are you sure you want to reset stats?')) {
