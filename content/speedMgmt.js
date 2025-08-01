@@ -17,7 +17,9 @@ const AdSpeedHandler = (() => {
         velocityTested: false,
         playerReady: false,
         adStartTime: null,
-        lastAdCheck: null
+        lastAdCheck: null,
+        warningInProgress: false,
+        debuggerConsent: false
     };
 
     // Utilities that use PlayerManager
@@ -28,13 +30,33 @@ const AdSpeedHandler = (() => {
         
         applyVelocity: (velocity) => window.PlayerManager?.setVelocity(velocity),
         
-        sendCommand: (command) => {
+        sendCommand: (command, data = {}) => {
             try {
-                chrome.runtime.sendMessage({ action: command });
+                // Only expect response for commands that actually send one
+                const expectsResponse = command === "trustedSkipClick";
+                
+                if (expectsResponse) {
+                    chrome.runtime.sendMessage({ action: command, ...data }, (response) => {
+                        if (chrome.runtime.lastError) {
+                            console.error(`Runtime message error ${command}:`, chrome.runtime.lastError);
+                        } else {
+                            console.log(`${command} click response:`, response);
+                        }
+                    });
+                } else {
+                    // Fire and forget for commands that don't need responses
+                    chrome.runtime.sendMessage({ action: command, ...data });
+                }
             } catch (error) {
                 console.error('Error sending command:', command, error);
             }
-        }
+        },
+             // Load debugger consent from storage
+        loadDebuggerConsent: () => {
+            chrome.storage.sync.get(['debuggerConsent'], (items) => {
+                state.debuggerConsent = items.debuggerConsent || false;
+            });
+        }   
     };
 
     // Speed optimization system
@@ -65,6 +87,115 @@ const AdSpeedHandler = (() => {
             return utils.applyVelocity(targetRate);
         }
     };
+
+    // Skip button manager system
+    const skipButtonManager = {
+        processedButton: new WeakSet(),
+
+        clickLikeHuman: (element) => { 
+            if (!element || !element.click) return false;
+
+            try { 
+                // Try to make click seem more realistic
+                const mouseEvent = [ 'mousedown', 'mouseup', 'click'];
+
+                mouseEvent.forEach((eventype, index) => {
+                    setTimeout(() => { 
+                        const event = new MouseEvent(eventype, {
+                            bubbles: true,
+                            cancelable: true,
+                            view: window,
+                            buttons: 1
+                        });
+                        element.dispatchEvent(event);
+
+                        if (index === mouseEvent.length - 1) {
+                            console.log('skip button clicked');
+                        }
+                    }, index * 50); // Slight delay between events
+                    });
+
+                    console.log('skip button clicked');
+                    return true;
+            } catch (error) {
+                console.error('Error clicking skip button:', error);
+                return false;
+            }
+        },
+
+        // Click method via debugger API
+        clickWithTrustedEvent: (element) => {
+            if (!element) return false;
+
+              if (!state.debuggerConsent) {
+                console.log('Debugger not given fallback running');
+                return skipButtonManager.clickLikeHuman(element);
+            }
+            try {
+
+                // Get element position
+                const rect = element.getBoundingClientRect();
+                const x = Math.round(rect.left + rect.width /2);
+                const y = Math.round(rect.top + rect.height /2);
+
+                // Check if position is valid
+                if (x < 0 || y < 0 || x > window.innerWidth || y > window.innerHeight) {
+                    console.warn('Skip button is out of bounds, using fallback click');
+                    return skipButtonManager.clickLikeHuman(element);
+                }
+                console.log(`Trusted click at (${x}, ${y})`);
+
+                // Send click to background script
+                utils.sendCommand("trustedSkipClick", { x, y });
+                return true;
+            } catch (error) {
+                console.error('Error with trusted click:', error);
+                // Fallback to human-like click
+                return skipButtonManager.clickLikeHuman(element);
+            }
+        },
+
+        // check if button is present and clickable
+        isClicked: (button) => {
+            if (!button) return false;
+
+            // is button visible and enabled?
+            const style = window.getComputedStyle(button);
+            const isVisible = style.display !== 'none' &&
+                style.visibility !== 'hidden' &&
+                style.opacity !== '0';
+            const isEnabled = !button.disabled && 
+                               !button.hasAttribute('disabled');
+                               
+            return isVisible && isEnabled;                   
+        },
+
+        // Main skip button handler
+        handleSkipButton: (button) => {
+            if (skipButtonManager.processedButton.has(button)) {
+                return;
+            }
+            skipButtonManager.processedButton.add(button);
+            setTimeout(() => {
+                if (skipButtonManager.isClicked(button)) {
+                    skipButtonManager.clickWithTrustedEvent(button);
+                }
+            }, 500);
+        },
+
+        // Skip button checker
+        checkSkipButton: () => {
+            const skipButton = document.querySelectorAll('button.ytp-skip-ad-button');
+
+            skipButton.forEach(button => {
+                // run if button is not processed
+                if (!skipButtonManager.processedButton.has(button)) {
+                    skipButtonManager.handleSkipButton(button);
+                }
+            });
+        }
+    };
+
 
     // Enhanced ad detection with multiple methods
     const adDetector = {
@@ -125,6 +256,13 @@ const AdSpeedHandler = (() => {
         },
 
         handleWarning: () => {
+            // Prevent multiple warning handling in quick succession
+        if (state.warningInProgress) {
+            return;
+        }
+        
+            // Mark warning as being handled
+        state.warningInProgress = true;
             // console.log("Ad blocker warning detected - reloading page");
             utils.sendCommand("warningDetected");
             utils.sendCommand("unmute");
@@ -151,6 +289,11 @@ const AdSpeedHandler = (() => {
             
             velocityManager.adjustPlaybackRate(state.currentVelocity);
             utils.sendCommand("mute");
+
+            // Start skip button checker after delay
+            setTimeout(() => {
+                skipButtonManager.checkSkipButton();
+            }, 1000);
         },
 
         processAdEnd: () => {
@@ -282,7 +425,19 @@ const AdSpeedHandler = (() => {
             // Wait for PlayerManager to be ready
             window.PlayerManager?.onReady(() => {
                 state.playerReady = true;
-                state.originalRate = utils.getCurrentRate();                
+                state.originalRate = utils.getCurrentRate(); 
+                
+                // Load debugger consent from storage
+                utils.loadDebuggerConsent();
+                
+                // Listen for consent changes
+                chrome.storage.onChanged.addListener((changes, namespace) => {
+                    if (namespace === 'sync' && changes.debuggerConsent) {
+                        state.debuggerConsent = changes.debuggerConsent.newValue || false;
+                        console.log('Debugger consent updated:', state.debuggerConsent);
+                    }
+                });
+                
                 // Initialize defensive systems
                 defensiveSystem.initialize();
                 
@@ -307,6 +462,9 @@ const AdSpeedHandler = (() => {
             utils,
             adDetector
         };
+
+        // Skip button manager gloabally - might change in the future
+        window.SkipButtonManage = skipButtonManager;
     };
 
     bootstrap();
@@ -317,6 +475,7 @@ const AdSpeedHandler = (() => {
         state,
         velocityManager,
         adDetector,
-        defensiveSystem
+        defensiveSystem,
+        skipButtonManager
     };
 })();

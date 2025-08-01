@@ -73,6 +73,19 @@ const MediaObserver = (() => {
             return false;
         },
 
+        // Skip button detection
+        checkSkipButton: (node) => {
+            if (!node || node.nodeType !== Node.ELEMENT_NODE) return false;
+
+            // check if node is a skip button
+            if (node.matches?.('button.ytp-skip-ad-button')) {
+                return true;
+            }
+
+            // check if node has a skip button inside it
+            return node.querySelector?.('button.ytp-skip-ad-button') !== null;
+        },
+
         triggerAdDetection: () => {
             try {
                 window.AdSpeedHandler?.processor?.cycle();
@@ -87,6 +100,7 @@ const MediaObserver = (() => {
             let hasVideoChanges = false;
             let hasAdChanges = false;
             let hasWarningChanges = false;
+            let hasSkipButtonChanges = false;
             
             for (const change of changeList) {
                 if (change.type === 'childList') {
@@ -113,6 +127,13 @@ const MediaObserver = (() => {
                     if (warningElementsAdded) {
                         hasWarningChanges = true;
                         // console.log("Ad blocker warning detected via MutationObserver");
+                    }
+
+                    const skipButtonAdded = Array.from(change.addedNodes).some(node =>
+                        adDetectionManager.checkSkipButton(node)
+                    );
+                    if (skipButtonAdded) {
+                        hasSkipButtonChanges = true;
                     }
                 } 
                 else if (change.type === 'attributes' && change.attributeName === 'class') {
@@ -152,6 +173,14 @@ const MediaObserver = (() => {
                         adDetectionManager.triggerAdDetection();
                     }, 500);
                 }
+            }
+            // Check for skip button changes
+            if (hasSkipButtonChanges) {
+                setTimeout(() => {
+                    if (window.skipButtonManage) {
+                        window.SkipButtonManage.checkSkipButton();
+                    }
+                }, 100);
             }
         },
 
