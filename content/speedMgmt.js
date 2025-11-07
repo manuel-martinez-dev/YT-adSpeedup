@@ -6,7 +6,14 @@ const AdSpeedHandler = (() => {
         TARGET_VELOCITY: 32,
         BACKUP_VELOCITIES: [50, 32, 16, 8],
         AD_SELECTOR: '.ad-showing, .ad-interrupting',
-        BLOCKER_WARNING_SELECTOR: 'ytd-enforcement-message-view-model #container'
+        BLOCKER_WARNING_SELECTOR: 'ytd-enforcement-message-view-model #container',
+        // Smart refresh prevention config
+        MAX_RELOADS_BEFORE_COOLDOWN: 3, // After 3 warnings in short time, enter cooldown
+        RELOAD_WINDOW_MS: 600000, // 10 minutes - time window to count reloads
+        COOLDOWN_DURATION_MS: 1800000, // 30 minutes cooldown
+        MIN_RELOAD_DELAY_MS: 2000, // Minimum 2 seconds between reloads
+        MAX_RELOAD_DELAY_MS: 60000, // Maximum 60 seconds between reloads
+        EXPONENTIAL_BASE: 2 // Base for exponential backoff
     };
 
     // State management
@@ -19,7 +26,12 @@ const AdSpeedHandler = (() => {
         adStartTime: null,
         lastAdCheck: null,
         warningInProgress: false,
-        debuggerConsent: false
+        debuggerConsent: false,
+        // Smart refresh prevention state
+        reloadHistory: [],
+        cooldownUntil: null,
+        consecutiveWarnings: 0,
+        inCooldownMode: false
     };
 
     // Utilities that use PlayerManager
@@ -196,6 +208,133 @@ const AdSpeedHandler = (() => {
         }
     };
 
+    // Smart reload management system with exponential backoff
+    const reloadManager = {
+        // Load reload history from storage
+        loadReloadHistory: () => {
+            return new Promise((resolve) => {
+                chrome.storage.local.get(['reloadHistory', 'cooldownUntil'], (result) => {
+                    state.reloadHistory = result.reloadHistory || [];
+                    state.cooldownUntil = result.cooldownUntil || null;
+
+                    // Check if still in cooldown
+                    if (state.cooldownUntil && Date.now() < state.cooldownUntil) {
+                        state.inCooldownMode = true;
+                        console.log(`In cooldown mode until ${new Date(state.cooldownUntil).toLocaleTimeString()}`);
+                    } else if (state.cooldownUntil) {
+                        // Cooldown expired, clear it
+                        state.cooldownUntil = null;
+                        state.inCooldownMode = false;
+                        chrome.storage.local.set({ cooldownUntil: null });
+                    }
+
+                    resolve();
+                });
+            });
+        },
+
+        // Clean old reload entries outside the time window
+        cleanReloadHistory: () => {
+            const now = Date.now();
+            const cutoff = now - CONFIG.RELOAD_WINDOW_MS;
+            state.reloadHistory = state.reloadHistory.filter(timestamp => timestamp > cutoff);
+        },
+
+        // Record a reload attempt
+        recordReload: () => {
+            const now = Date.now();
+            state.reloadHistory.push(now);
+            reloadManager.cleanReloadHistory();
+
+            // Save to storage
+            chrome.storage.local.set({
+                reloadHistory: state.reloadHistory
+            });
+
+            state.consecutiveWarnings = state.reloadHistory.length;
+        },
+
+        // Calculate exponential backoff delay
+        calculateBackoffDelay: () => {
+            const numReloads = state.reloadHistory.length;
+
+            if (numReloads === 0) {
+                return CONFIG.MIN_RELOAD_DELAY_MS;
+            }
+
+            // Exponential backoff: base^(numReloads-1) * MIN_DELAY
+            const delay = Math.pow(CONFIG.EXPONENTIAL_BASE, numReloads - 1) * CONFIG.MIN_RELOAD_DELAY_MS;
+
+            // Cap at maximum delay
+            return Math.min(delay, CONFIG.MAX_RELOAD_DELAY_MS);
+        },
+
+        // Check if should enter cooldown mode
+        shouldEnterCooldown: () => {
+            reloadManager.cleanReloadHistory();
+            return state.reloadHistory.length >= CONFIG.MAX_RELOADS_BEFORE_COOLDOWN;
+        },
+
+        // Enter cooldown mode
+        enterCooldown: () => {
+            const now = Date.now();
+            state.cooldownUntil = now + CONFIG.COOLDOWN_DURATION_MS;
+            state.inCooldownMode = true;
+
+            chrome.storage.local.set({
+                cooldownUntil: state.cooldownUntil,
+                reloadHistory: [] // Clear history when entering cooldown
+            });
+
+            state.reloadHistory = [];
+
+            console.log(`Entering cooldown mode for ${CONFIG.COOLDOWN_DURATION_MS / 60000} minutes`);
+            console.log('Extension will operate in stealth mode (minimal speed increase) during cooldown');
+        },
+
+        // Handle warning with smart reload logic
+        handleSmartReload: () => {
+            // Check if should enter cooldown
+            if (reloadManager.shouldEnterCooldown()) {
+                reloadManager.enterCooldown();
+
+                // Don't reload, just notify user and switch to stealth mode
+                console.warn('Too many warnings detected. Entering stealth mode - ads will play at 2x speed only.');
+                utils.sendCommand("warningDetected");
+                utils.sendCommand("cooldownActivated", {
+                    duration: CONFIG.COOLDOWN_DURATION_MS,
+                    until: state.cooldownUntil
+                });
+
+                // Switch to minimal speed increase
+                state.currentVelocity = 2;
+
+                return false; // Don't reload
+            }
+
+            // Calculate backoff delay
+            const delay = reloadManager.calculateBackoffDelay();
+
+            console.log(`Reload scheduled in ${delay}ms (attempt ${state.reloadHistory.length + 1})`);
+
+            // Record this reload
+            reloadManager.recordReload();
+
+            // Wait for backoff delay before reloading
+            setTimeout(() => {
+                utils.sendCommand("warningDetected");
+                utils.sendCommand("unmute");
+                utils.sendCommand("pageReload");
+
+                // Small additional delay to ensure commands are processed
+                setTimeout(() => {
+                    window.location.reload();
+                }, 150);
+            }, delay);
+
+            return true; // Will reload after delay
+        }
+    };
 
     // Enhanced ad detection with multiple methods
     const adDetector = {
@@ -257,20 +396,30 @@ const AdSpeedHandler = (() => {
 
         handleWarning: () => {
             // Prevent multiple warning handling in quick succession
-        if (state.warningInProgress) {
-            return;
-        }
-        
+            if (state.warningInProgress) {
+                return;
+            }
+
             // Mark warning as being handled
-        state.warningInProgress = true;
-            // console.log("Ad blocker warning detected - reloading page");
-            utils.sendCommand("warningDetected");
-            utils.sendCommand("unmute");
-            utils.sendCommand("pageReload");
-            // Small delay to ensure unmute command is processed
-            setTimeout(() => {
-                window.location.reload();
-            }, 150);
+            state.warningInProgress = true;
+
+            // Use smart reload manager instead of immediate reload
+            console.log("Ad blocker warning detected - using smart reload strategy");
+
+            // If in cooldown mode, just hide warning element instead of reloading
+            if (state.inCooldownMode) {
+                console.log("In cooldown mode - attempting to hide warning without reload");
+                const warningEl = document.querySelector(CONFIG.BLOCKER_WARNING_SELECTOR);
+                if (warningEl) {
+                    warningEl.style.display = 'none';
+                    warningEl.remove();
+                }
+                state.warningInProgress = false;
+                return;
+            }
+
+            // Use smart reload with exponential backoff
+            reloadManager.handleSmartReload();
         },
 
         processAdStart: () => {
@@ -279,15 +428,20 @@ const AdSpeedHandler = (() => {
                 state.adActive = true;
                 state.adStartTime = Date.now();
                 state.originalRate = utils.getCurrentRate();
-                
-                // Calibrate on first ad if not done
-                if (!state.velocityTested) {
+
+                // Calibrate on first ad if not done and not in cooldown
+                if (!state.velocityTested && !state.inCooldownMode) {
                     velocityManager.calibrateMaxVelocity();
                     state.velocityTested = true;
+                } else if (state.inCooldownMode && state.currentVelocity !== 2) {
+                    // In cooldown mode, use minimal speed
+                    state.currentVelocity = 2;
                 }
             }
-            
-            velocityManager.adjustPlaybackRate(state.currentVelocity);
+
+            // Use lower speed in cooldown mode
+            const targetVelocity = state.inCooldownMode ? 2 : state.currentVelocity;
+            velocityManager.adjustPlaybackRate(targetVelocity);
             utils.sendCommand("mute");
 
             // Start skip button checker after delay
@@ -422,27 +576,30 @@ const AdSpeedHandler = (() => {
         },
 
         initialize: () => {
-            // Wait for PlayerManager to be ready
-            window.PlayerManager?.onReady(() => {
-                state.playerReady = true;
-                state.originalRate = utils.getCurrentRate(); 
-                
-                // Load debugger consent from storage
-                utils.loadDebuggerConsent();
-                
-                // Listen for consent changes
-                chrome.storage.onChanged.addListener((changes, namespace) => {
-                    if (namespace === 'sync' && changes.debuggerConsent) {
-                        state.debuggerConsent = changes.debuggerConsent.newValue || false;
-                        console.log('Debugger consent updated:', state.debuggerConsent);
-                    }
+            // Load reload history first
+            reloadManager.loadReloadHistory().then(() => {
+                // Wait for PlayerManager to be ready
+                window.PlayerManager?.onReady(() => {
+                    state.playerReady = true;
+                    state.originalRate = utils.getCurrentRate();
+
+                    // Load debugger consent from storage
+                    utils.loadDebuggerConsent();
+
+                    // Listen for consent changes
+                    chrome.storage.onChanged.addListener((changes, namespace) => {
+                        if (namespace === 'sync' && changes.debuggerConsent) {
+                            state.debuggerConsent = changes.debuggerConsent.newValue || false;
+                            console.log('Debugger consent updated:', state.debuggerConsent);
+                        }
+                    });
+
+                    // Initialize defensive systems
+                    defensiveSystem.initialize();
+
+                    // Run initial check
+                    processor.cycle();
                 });
-                
-                // Initialize defensive systems
-                defensiveSystem.initialize();
-                
-                // Run initial check
-                processor.cycle();
             });
         }
     };
@@ -456,11 +613,12 @@ const AdSpeedHandler = (() => {
         }
         
         // Expose processor globally so MutationObserver can call it
-        window.AdSpeedHandler = { 
-            processor, 
+        window.AdSpeedHandler = {
+            processor,
             state,
             utils,
-            adDetector
+            adDetector,
+            reloadManager
         };
 
         // Skip button manager gloabally - might change in the future
@@ -468,14 +626,15 @@ const AdSpeedHandler = (() => {
     };
 
     bootstrap();
-    
-    return { 
-        processor, 
-        utils, 
+
+    return {
+        processor,
+        utils,
         state,
         velocityManager,
         adDetector,
         defensiveSystem,
-        skipButtonManager
+        skipButtonManager,
+        reloadManager
     };
 })();
