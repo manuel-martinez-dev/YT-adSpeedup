@@ -25,10 +25,30 @@ const AdSpeedHandler = (() => {
     // Utilities that use PlayerManager
     const utils = {
         getVideoElement: () => window.PlayerManager?.getMediaElement(),
-        
-        getCurrentRate: () => window.PlayerManager?.getVelocity(),
-        
-        applyVelocity: (velocity) => window.PlayerManager?.setVelocity(velocity),
+
+        getCurrentRate: () => {
+            // Use detection evasion API if available to get real rate
+            if (window.__adSpeedupExtensionAPI) {
+                window.__adSpeedupExtensionAPI.beginExtensionCall();
+            }
+            const rate = window.PlayerManager?.getVelocity();
+            if (window.__adSpeedupExtensionAPI) {
+                window.__adSpeedupExtensionAPI.endExtensionCall();
+            }
+            return rate;
+        },
+
+        applyVelocity: (velocity) => {
+            // Use detection evasion API if available
+            if (window.__adSpeedupExtensionAPI) {
+                window.__adSpeedupExtensionAPI.beginExtensionCall();
+            }
+            const result = window.PlayerManager?.setVelocity(velocity);
+            if (window.__adSpeedupExtensionAPI) {
+                window.__adSpeedupExtensionAPI.endExtensionCall();
+            }
+            return result;
+        },
         
         sendCommand: (command, data = {}) => {
             try {
