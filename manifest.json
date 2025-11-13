@@ -37,6 +37,21 @@
         "*://music.youtube.com/*"
       ],
       "js": [
+        "content/detectionEvasion.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": false,
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "*://www.youtube.com/*",
+        "*://youtube.com/*",
+        "*://www.youtube-nocookie.com/*",
+        "*://youtube-nocookie.com/*",
+        "*://music.youtube.com/*"
+      ],
+      "js": [
         "content/playerInit.js",
         "content/speedSupervisor.js",
         "content/speedMgmt.js",
