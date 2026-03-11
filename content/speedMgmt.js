@@ -3,8 +3,8 @@
 const AdSpeedHandler = (() => {
     // Configuration constants
     const CONFIG = {
-        TARGET_VELOCITY: 32,
-        BACKUP_VELOCITIES: [50, 32, 16, 8],
+        TARGET_VELOCITY: 16,
+        BACKUP_VELOCITIES: [8, 4, 2],
         AD_SELECTOR: '.ad-showing, .ad-interrupting',
         BLOCKER_WARNING_SELECTOR: 'ytd-enforcement-message-view-model #container',
         // Smart refresh prevention config
@@ -39,27 +39,11 @@ const AdSpeedHandler = (() => {
         getVideoElement: () => window.PlayerManager?.getMediaElement(),
 
         getCurrentRate: () => {
-            // Use detection evasion API if available to get real rate
-            if (window.__adSpeedupExtensionAPI) {
-                window.__adSpeedupExtensionAPI.beginExtensionCall();
-            }
-            const rate = window.PlayerManager?.getVelocity();
-            if (window.__adSpeedupExtensionAPI) {
-                window.__adSpeedupExtensionAPI.endExtensionCall();
-            }
-            return rate;
+            return window.PlayerManager?.getVelocity();
         },
 
         applyVelocity: (velocity) => {
-            // Use detection evasion API if available
-            if (window.__adSpeedupExtensionAPI) {
-                window.__adSpeedupExtensionAPI.beginExtensionCall();
-            }
-            const result = window.PlayerManager?.setVelocity(velocity);
-            if (window.__adSpeedupExtensionAPI) {
-                window.__adSpeedupExtensionAPI.endExtensionCall();
-            }
-            return result;
+            return window.PlayerManager?.setVelocity(velocity);
         },
         
         sendCommand: (command, data = {}) => {
@@ -460,7 +444,7 @@ const AdSpeedHandler = (() => {
                 // console.log("Ad finished - restoring normal playback");
                 state.adActive = false;
                 state.adStartTime = null;
-                velocityManager.adjustPlaybackRate(state.originalRate);
+                velocityManager.adjustPlaybackRate(1);
                 utils.sendCommand("unmute");
                 utils.sendCommand("adCounter");
             }
