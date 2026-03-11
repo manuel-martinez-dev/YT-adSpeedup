@@ -37,8 +37,6 @@ function updateStats() {
         document.getElementById('warningCounter').textContent = formatNumber(warningHit);
         document.getElementById('refreshCount').textContent = formatNumber(reloadCount);
 
-        // Debugging output
-        console.log('stats updated:', { adCountered, warningHit, reloadCount });
     });
 }
 
@@ -46,7 +44,6 @@ function loadDebuggerConsent() {
     chrome.storage.sync.get(['debuggerConsent'], function(items) {
         const consent = items.debuggerConsent || false;
         document.getElementById('debuggerConsent').checked = consent;
-        console.log('Loaded debugger consent:', consent);
     });
 }
 
@@ -99,7 +96,6 @@ function resetStatistics() {
             if (chrome.runtime.lastError) {
                 console.error('Error resetting statistics:', chrome.runtime.lastError);
             } else {
-                console.log('Statistics reset successfully');
                 updateStats();
             }
         });

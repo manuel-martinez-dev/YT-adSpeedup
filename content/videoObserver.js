@@ -228,7 +228,6 @@ const MediaObserver = (() => {
             
             domObserver.startWatching();
             
-            window.changeSpeed = speedController.adjustPlaybackVelocity;
         } catch (error) {
             console.error("Error during MediaObserver initialization:", error);
         }

@@ -75,6 +75,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
 
       // console.log('Processing trusted click with user consent');
+      if (
+        typeof message.x !== 'number' || typeof message.y !== 'number' ||
+        !isFinite(message.x) || !isFinite(message.y) ||
+        message.x < 0 || message.y < 0
+      ) {
+        sendResponse({ success: false, error: 'Invalid coordinates' });
+        return;
+      }
+
       const target = { tabId: sender.tab.id };
 
       chrome.debugger.attach(target, "1.2", function() { 
@@ -83,7 +92,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           sendResponse({ success: false, error: chrome.runtime.lastError.message });
           return;
         }
-        console.log('Debugger attached - processing click');
 
         // Mouse interaction sequence for trusted click
         chrome.debugger.sendCommand(target, "Input.dispatchMouseEvent", {
@@ -107,7 +115,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 clickCount: 1,
               }, () => {
                 chrome.debugger.detach(target);
-                console.log('Trusted click completed');
                 sendResponse({ success: true });
               });
             }, 50);

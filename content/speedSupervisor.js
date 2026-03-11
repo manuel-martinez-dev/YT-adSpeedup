@@ -67,9 +67,6 @@ const VelocityController = (() => {
         });
     };
 
-    // Expose alternative global method
-    window.changeSpeed = publicAPI.setVelocity;
-
     // Initialize
     initialize();
 

@@ -71,8 +71,6 @@ const AdSpeedHandler = (() => {
                     chrome.runtime.sendMessage({ action: command, ...data }, (response) => {
                         if (chrome.runtime.lastError) {
                             console.error(`Runtime message error ${command}:`, chrome.runtime.lastError);
-                        } else {
-                            console.log(`${command} click response:`, response);
                         }
                     });
                 } else {
@@ -141,13 +139,9 @@ const AdSpeedHandler = (() => {
                         });
                         element.dispatchEvent(event);
 
-                        if (index === mouseEvent.length - 1) {
-                            console.log('skip button clicked');
-                        }
                     }, index * 50); // Slight delay between events
                     });
 
-                    console.log('skip button clicked');
                     return true;
             } catch (error) {
                 console.error('Error clicking skip button:', error);
@@ -160,7 +154,6 @@ const AdSpeedHandler = (() => {
             if (!element) return false;
 
               if (!state.debuggerConsent) {
-                console.log('Debugger not given fallback running');
                 return skipButtonManager.clickLikeHuman(element);
             }
             try {
@@ -175,8 +168,6 @@ const AdSpeedHandler = (() => {
                     console.warn('Skip button is out of bounds, using fallback click');
                     return skipButtonManager.clickLikeHuman(element);
                 }
-                console.log(`Trusted click at (${x}, ${y})`);
-
                 // Send click to background script
                 utils.sendCommand("trustedSkipClick", { x, y });
                 return true;
@@ -240,7 +231,6 @@ const AdSpeedHandler = (() => {
                     // Check if still in cooldown
                     if (state.cooldownUntil && Date.now() < state.cooldownUntil) {
                         state.inCooldownMode = true;
-                        console.log(`In cooldown mode until ${new Date(state.cooldownUntil).toLocaleTimeString()}`);
                     } else if (state.cooldownUntil) {
                         // Cooldown expired, clear it
                         state.cooldownUntil = null;
@@ -308,8 +298,6 @@ const AdSpeedHandler = (() => {
 
             state.reloadHistory = [];
 
-            console.log(`Entering cooldown mode for ${CONFIG.COOLDOWN_DURATION_MS / 60000} minutes`);
-            console.log('Extension will operate in stealth mode (minimal speed increase) during cooldown');
         },
 
         // Handle warning with smart reload logic
@@ -335,7 +323,6 @@ const AdSpeedHandler = (() => {
             // Calculate backoff delay
             const delay = reloadManager.calculateBackoffDelay();
 
-            console.log(`Reload scheduled in ${delay}ms (attempt ${state.reloadHistory.length + 1})`);
 
             // Record this reload
             reloadManager.recordReload();
@@ -424,11 +411,9 @@ const AdSpeedHandler = (() => {
             state.warningInProgress = true;
 
             // Use smart reload manager instead of immediate reload
-            console.log("Ad blocker warning detected - using smart reload strategy");
 
             // If in cooldown mode, just hide warning element instead of reloading
             if (state.inCooldownMode) {
-                console.log("In cooldown mode - attempting to hide warning without reload");
                 const warningEl = document.querySelector(CONFIG.BLOCKER_WARNING_SELECTOR);
                 if (warningEl) {
                     warningEl.style.display = 'none';
@@ -610,7 +595,6 @@ const AdSpeedHandler = (() => {
                     chrome.storage.onChanged.addListener((changes, namespace) => {
                         if (namespace === 'sync' && changes.debuggerConsent) {
                             state.debuggerConsent = changes.debuggerConsent.newValue || false;
-                            console.log('Debugger consent updated:', state.debuggerConsent);
                         }
                     });
 
